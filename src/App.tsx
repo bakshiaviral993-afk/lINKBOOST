@@ -81,20 +81,31 @@ export default function App() {
 
   const handleConnect = async () => {
     if (isConnecting) return;
+    
+    // Open a blank popup immediately to bypass popup blockers
+    const popup = window.open("about:blank", "linkedin_oauth", "width=600,height=700");
+    
+    if (!popup || popup.closed || typeof popup.closed === 'undefined') {
+      setStatusMessage({ type: "error", text: "Popup blocked! Please allow popups for this site." });
+      return;
+    }
+
     setIsConnecting(true);
     try {
       const res = await fetch("/api/auth/url");
       const data = await res.json();
+      
       if (data.error) {
+        popup.close();
         setStatusMessage({ type: "error", text: data.error });
         return;
       }
-      const popup = window.open(data.url, "linkedin_oauth", "width=600,height=700");
-      if (!popup || popup.closed || typeof popup.closed === 'undefined') {
-        setStatusMessage({ type: "error", text: "Popup blocked! Please allow popups for this site." });
-      }
+      
+      // Redirect the existing popup to the LinkedIn auth URL
+      popup.location.href = data.url;
     } catch (err) {
       console.error(err);
+      if (popup) popup.close();
       setStatusMessage({ type: "error", text: "Failed to connect to LinkedIn. Please check your internet connection." });
     } finally {
       setIsConnecting(false);
