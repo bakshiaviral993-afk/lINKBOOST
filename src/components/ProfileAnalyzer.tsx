@@ -1,26 +1,9 @@
 import React, { useState } from "react";
 import { Sparkles, TrendingUp, Zap, FileText, ArrowRight, CheckCircle2, AlertCircle, Loader2, ChevronRight, RefreshCw, BarChart3, Users, Target, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { analyzeProfile, type ProfileAnalysis } from "../services/gemini";
 
 type User = { id: string; name: string; email: string; picture?: string; headline?: string; about?: string };
-
-interface ProfileAnalysis {
-  overallScore: number;
-  grade: string;
-  categories: {
-    headline: { score: number; feedback: string; optimized: string };
-    about: { score: number; feedback: string; optimized: string };
-    experience: { score: number; feedback: string };
-    skills: { score: number; feedback: string; suggested: string[] };
-    network: { score: number; feedback: string };
-  };
-  strengths: string[];
-  criticalFixes: string[];
-  profilePowerStatement: string;
-  competitorGap: string;
-  viralityPotential: string;
-  targetAudienceReach: string;
-}
 
 interface ProfileAnalyzerProps {
   user: User;
@@ -47,14 +30,14 @@ export default function ProfileAnalyzer({ user }: ProfileAnalyzerProps) {
     setIsAnalyzing(true);
     setError(null);
     try {
-      const res = await fetch("/api/analyze-profile", {
+      const data = await analyzeProfile(formData);
+      setAnalysis(data);
+      // Save to DB
+      fetch("/api/save-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, profileData: formData })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setAnalysis(data);
+        body: JSON.stringify({ userId: user.id, analysis: data })
+      }).catch(err => console.error("Failed to save analysis:", err));
     } catch (err: any) {
       setError(err.message);
     } finally {

@@ -425,77 +425,23 @@ async function startServer() {
     res.json(posts);
   });
 
-  app.post("/api/analyze-profile", async (req, res) => {
-    const { userId, profileData } = req.body;
-    const systemPrompt = "You are an elite LinkedIn growth strategist who has helped 500+ professionals reach top 1% profile visibility. Be brutally honest, specific, and actionable. Return ONLY valid JSON with no markdown fences.";
-    const prompt = `Analyze this LinkedIn profile data and provide a deep analysis.
-    Profile Data: ${JSON.stringify(profileData)}
-    
-    Return this exact JSON shape:
-    {
-      "overallScore": 85,
-      "grade": "A",
-      "categories": {
-        "headline": { "score": 70, "feedback": "...", "optimized": "..." },
-        "about": { "score": 65, "feedback": "...", "optimized": "..." },
-        "experience": { "score": 80, "feedback": "..." },
-        "skills": { "score": 75, "feedback": "...", "suggested": ["skill1", "skill2", "skill3"] },
-        "network": { "score": 60, "feedback": "..." }
-      },
-      "strengths": ["strength1", "strength2", "strength3"],
-      "criticalFixes": ["fix1", "fix2", "fix3"],
-      "profilePowerStatement": "One powerful sentence about unique value",
-      "competitorGap": "What top performers in this space have that this profile lacks",
-      "viralityPotential": "high",
-      "targetAudienceReach": "description"
-    }`;
-
+  app.post("/api/save-analysis", (req, res) => {
+    const { userId, analysis } = req.body;
     try {
-      const resultText = await gemini(prompt, systemPrompt);
-      const cleanJson = resultText.replace(/```json|```/g, "").trim();
-      const analysis = JSON.parse(cleanJson);
-      
       db.prepare("INSERT INTO profile_analyses (user_id, analysis_json, score) VALUES (?, ?, ?)").run(
         userId,
-        cleanJson,
+        JSON.stringify(analysis),
         analysis.overallScore
       );
-      
-      res.json(analysis);
+      res.json({ success: true });
     } catch (error: any) {
-      console.error("Profile Analysis Error:", error.message);
-      res.status(500).json({ 
-        error: error.message,
-        isAiError: true 
-      });
+      res.status(500).json({ error: error.message });
     }
   });
 
-  app.post("/api/generate-post", async (req, res) => {
-    const { userId, topic, postType, tone, context, targetAudience } = req.body;
-    const systemPrompt = "You are a LinkedIn viral content expert. Posts you've written have reached 100k+ impressions. You understand the LinkedIn algorithm deeply. Return ONLY valid JSON.";
-    const prompt = `Generate a viral LinkedIn post for a ${postType} about "${topic}".
-    Tone: ${tone}
-    Context: ${context}
-    Target Audience: ${targetAudience}
-    
-    Return this exact JSON shape:
-    {
-      "post": "full post text with \\n line breaks",
-      "hook": "just the first line",
-      "viralityScore": 85,
-      "viralityReason": "why this will perform well",
-      "bestPostingTime": "Tuesday 8-9am",
-      "hashtags": ["tag1", "tag2", "tag3", "tag4", "tag5"],
-      "engagementPrediction": { "likes": "200-500", "comments": "30-80", "reposts": "20-50" },
-      "variations": ["alternative hook 1", "alternative hook 2"]
-    }`;
-
+  app.post("/api/save-post", (req, res) => {
+    const { userId, postData, topic, postType } = req.body;
     try {
-      const resultText = await gemini(prompt, systemPrompt);
-      const cleanJson = resultText.replace(/```json|```/g, "").trim();
-      const postData = JSON.parse(cleanJson);
-      
       db.prepare("INSERT INTO posts (user_id, content, status, virality_score, topic, post_type) VALUES (?, ?, 'draft', ?, ?, ?)").run(
         userId,
         postData.post,
@@ -503,63 +449,7 @@ async function startServer() {
         topic,
         postType
       );
-      
-      res.json(postData);
-    } catch (error: any) {
-      console.error("Post Generation Error:", error.message);
-      res.status(500).json({ 
-        error: error.message,
-        isAiError: true 
-      });
-    }
-  });
-
-  app.post("/api/score-post", async (req, res) => {
-    const { content } = req.body;
-    const prompt = `Score this LinkedIn post for virality and provide feedback.
-    Content: ${content}
-    
-    Return this exact JSON shape:
-    {
-      "viralityScore": 75,
-      "hookStrength": 80,
-      "readabilityScore": 70,
-      "valueScore": 85,
-      "emotionalResonance": 65,
-      "ctaStrength": 60,
-      "verdict": "one sentence verdict",
-      "topFix": "most important improvement",
-      "improvedHook": "rewritten first line",
-      "predictedImpressions": "medium"
-    }`;
-
-    try {
-      const resultText = await gemini(prompt);
-      const cleanJson = resultText.replace(/```json|```/g, "").trim();
-      res.json(JSON.parse(cleanJson));
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
-
-  app.post("/api/optimize-section", async (req, res) => {
-    const { section, content, context } = req.body;
-    const prompt = `Optimize this LinkedIn ${section} section.
-    Current Content: ${content}
-    Context: ${context}
-    
-    Return this exact JSON shape:
-    {
-      "optimized": "rewritten section",
-      "keyImprovements": ["imp1", "imp2", "imp3"],
-      "keywordsAdded": ["kw1", "kw2", "kw3"],
-      "seoScore": 88
-    }`;
-
-    try {
-      const resultText = await gemini(prompt);
-      const cleanJson = resultText.replace(/```json|```/g, "").trim();
-      res.json(JSON.parse(cleanJson));
+      res.json({ success: true });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
     }

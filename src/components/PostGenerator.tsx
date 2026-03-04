@@ -1,32 +1,9 @@
 import React, { useState } from "react";
 import { TrendingUp, Sparkles, Send, Copy, CheckCircle2, AlertCircle, Loader2, BarChart3, Clock, Hash, MessageSquare, Repeat, Heart, Zap, ChevronRight, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { generatePost, scorePost, type PostGeneration, type PostScore } from "../services/gemini";
 
 type User = { id: string; name: string; email: string; picture?: string; headline?: string; about?: string };
-
-interface PostGeneration {
-  post: string;
-  hook: string;
-  viralityScore: number;
-  viralityReason: string;
-  bestPostingTime: string;
-  hashtags: string[];
-  engagementPrediction: { likes: string; comments: string; reposts: string };
-  variations: string[];
-}
-
-interface PostScore {
-  viralityScore: number;
-  hookStrength: number;
-  readabilityScore: number;
-  valueScore: number;
-  emotionalResonance: number;
-  ctaStrength: number;
-  verdict: string;
-  topFix: string;
-  improvedHook: string;
-  predictedImpressions: string;
-}
 
 interface PostGeneratorProps {
   user: User;
@@ -94,15 +71,25 @@ export default function PostGenerator({ user }: PostGeneratorProps) {
     }
 
     try {
-      const res = await fetch("/api/generate-post", {
+      const data = await generatePost(formData);
+      setResult(data);
+      
+      // Append hashtags to the post content so they are published together
+      const hashtagsString = data.hashtags.map(tag => tag.startsWith('#') ? tag : `#${tag}`).join(' ');
+      const fullPost = `${data.post}\n\n${hashtagsString}`;
+      
+      setEditablePost(fullPost);
+      // Save to DB
+      fetch("/api/save-post", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user.id, ...formData })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      setResult(data);
-      setEditablePost(data.post);
+        body: JSON.stringify({ 
+          userId: user.id, 
+          postData: { ...data, post: fullPost }, 
+          topic: formData.topic, 
+          postType: formData.postType 
+        })
+      }).catch(err => console.error("Failed to save post:", err));
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -113,15 +100,10 @@ export default function PostGenerator({ user }: PostGeneratorProps) {
   const handleScorePost = async () => {
     setIsScoring(true);
     try {
-      const res = await fetch("/api/score-post", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: editablePost })
-      });
-      const data = await res.json();
+      const data = await scorePost(editablePost);
       setScoreResult(data);
     } catch (err: any) {
-      setError("Scoring failed");
+      setError("Scoring failed: " + err.message);
     } finally {
       setIsScoring(false);
     }
@@ -288,6 +270,33 @@ export default function PostGenerator({ user }: PostGeneratorProps) {
 
         {/* Results Column */}
         <div className="lg:col-span-8 space-y-8">
+          <AnimatePresence>
+            {publishSuccess && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0, y: -20 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -20 }}
+                className="p-4 bg-success/10 border border-success/20 rounded-xl text-success flex items-center justify-between"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-success/20 flex items-center justify-center">
+                    <CheckCircle2 className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-bold text-sm">Successfully Published!</p>
+                    <p className="text-xs opacity-80">Your post is now live on LinkedIn.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setPublishSuccess(false)}
+                  className="text-xs font-bold hover:underline"
+                >
+                  Dismiss
+                </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <AnimatePresence mode="wait">
             {!result ? (
               <motion.div 

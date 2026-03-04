@@ -1,15 +1,9 @@
 import React, { useState } from "react";
 import { Zap, Sparkles, Copy, CheckCircle2, AlertCircle, Loader2, BarChart3, ChevronRight, RefreshCw, Target, ShieldCheck } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { optimizeSection, type OptimizationResult } from "../services/gemini";
 
 type User = { id: string; name: string; email: string; picture?: string; headline?: string; about?: string };
-
-interface OptimizationResult {
-  optimized: string;
-  keyImprovements: string[];
-  keywordsAdded: string[];
-  seoScore: number;
-}
 
 interface ProfileOptimizerProps {
   user: User;
@@ -37,13 +31,7 @@ export default function ProfileOptimizer({ user }: ProfileOptimizerProps) {
     setIsOptimizing(true);
     setError(null);
     try {
-      const res = await fetch("/api/optimize-section", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ section: activeSection, ...formData })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
+      const data = await optimizeSection(activeSection, formData.content, formData.context);
       setResult(data);
     } catch (err: any) {
       setError(err.message);
